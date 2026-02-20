@@ -1,14 +1,38 @@
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { Button, Image, SafeAreaView, Text, View } from "react-native";
+import { NotificationBanner } from "../../components/NotificationBanner";
 import { appendReceipt } from "../../sheetApi";
 import { uploadReceiptImage } from "../../uploadReceipt";
 
 export default function HomeScreen() {
   const [uri, setUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const [noticeVisible, setNoticeVisible] = useState(false);
+  const [notice, setNotice] = useState<{
+    visible: boolean;
+    type: "success" | "error";
+    title: string;
+    message?: string;
+  }>({ visible: false, type: "success", title: "" });
 
+const showNotice = (n: Omit<typeof notice, "visible">) => {
+  setNotice({ ...n, visible: true });
+  setTimeout(() => setNotice((p) => ({ ...p, visible: false })), 1600);
+};
+
+  useEffect(() => {
+  if (params.uploaded === "1") {
+    setNoticeVisible(true);
+    const t = setTimeout(() => setNoticeVisible(false), 1600);
+    return () => clearTimeout(t);
+  }
+}, [params.uploaded]);
+  
   const pick = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -44,9 +68,10 @@ export default function HomeScreen() {
     
     console.log("Uploaded URL:", imageUrl);
     //alert(imageUrl); // test: paste into browser, should display
-    alert("Saved to Google Sheets ✅");
+    setUri(null);
+    showNotice({ type: "success", title: "Uploaded ✅", message: "Saved to Google Sheets" });
   } catch (err: any) {
-    alert("Upload failed: " + err.message);
+    showNotice({ type: "error", title: "Upload failed", message: err?.message ?? "Unknown error" });
   } finally {
     setUploading(false);
   }
@@ -76,6 +101,12 @@ export default function HomeScreen() {
           </View>
         </>
       )}
+      <NotificationBanner
+        visible={notice.visible}
+        type={notice.type}
+        title={notice.title}
+        message={notice.message}
+        />
     </SafeAreaView>
   );
 }

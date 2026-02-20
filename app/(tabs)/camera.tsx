@@ -4,7 +4,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Button, Image, SafeAreaView, Text, View } from "react-native";
-
+import { NotificationBanner } from "../../components/NotificationBanner";
 import { appendReceipt } from "../../sheetApi";
 import { uploadReceiptImage } from "../../uploadReceipt";
 
@@ -14,6 +14,17 @@ export default function CameraScreen() {
   const [uri, setUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const router = useRouter();
+  const [notice, setNotice] = useState<{
+    visible: boolean;
+    type: "success" | "error";
+    title: string;
+    message?: string;
+  }>({ visible: false, type: "success", title: "" });
+
+const showNotice = (n: Omit<typeof notice, "visible">) => {
+  setNotice({ ...n, visible: true });
+  setTimeout(() => setNotice((p) => ({ ...p, visible: false })), 1600);
+};
 
   useEffect(() => {
     if (!permission?.granted) requestPermission();
@@ -58,11 +69,12 @@ export default function CameraScreen() {
       }
 
       setUri(null);
-      alert("Uploaded + removed locally ✅");
-      router.replace("/");
-    } catch (e: any) {
-      alert("Error: " + e.message);
       //alert("Uploaded + removed locally ✅");
+      showNotice({ type: "success", title: "Uploaded ✅", message: "Saved to Google Sheets" });
+      router.replace({ pathname: "/", params: { uploaded: "1" } });
+    } catch (e: any) {
+      //alert("Error: " + e.message);
+      showNotice({ type: "error", title: "Upload failed", message: e?.message ?? "Unknown error" });
     } finally {
       setUploading(false);
     }
@@ -102,6 +114,12 @@ export default function CameraScreen() {
           <Button title="Retake" onPress={() => setUri(null)} disabled={uploading} />
         </View>
       )}
+      <NotificationBanner
+        visible={notice.visible}
+        type={notice.type}
+        title={notice.title}
+        message={notice.message}
+        />
     </SafeAreaView>
   );
 }
