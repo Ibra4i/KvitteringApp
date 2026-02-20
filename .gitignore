@@ -43,6 +43,6 @@ app-example
 /android
 
 #firebase/firebaseConfig.ts
-firebase/firebaseConfig.ts
+firebase.ts
 
 sheetApi.ts
