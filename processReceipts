@@ -1,0 +1,34 @@
+import * as ImageManipulator from "expo-image-manipulator";
+import { extractReceiptFromImage } from "./ocrApi";
+import { appendReceipt } from "./sheetApi";
+import { uploadReceiptImage } from "./uploadReceipt";
+
+export async function processReceipt(localUri: string, note: string) {
+  // Convert to consistent JPEG (better OCR + compatibility)
+  const processed = await ImageManipulator.manipulateAsync(
+    localUri,
+    [{ resize: { width: 1600 } }],
+    { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
+  );
+
+  // 1) Upload
+  const imageUrl = await uploadReceiptImage(processed.uri);
+
+  // 2) OCR
+  const ocr = await extractReceiptFromImage(imageUrl);
+
+  // 3) Append to sheet
+  await appendReceipt({
+    merchant: ocr.merchant ?? "",
+    amount: ocr.total ?? "",
+    currency: "DKK",
+    note,
+    vat: ocr.vat ?? "",
+    imageUrl,
+    date: ocr.date ?? "",
+    time: ocr.time ?? "",
+    rawText: ocr.rawText ?? "",
+  });
+
+  return { imageUrl, ocr, processedUri: processed.uri };
+}

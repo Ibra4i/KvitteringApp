@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Button, Image, SafeAreaView, Text, View } from "react-native";
 import { NotificationBanner } from "../../components/NotificationBanner";
+import { extractReceiptFromImage } from "../../ocrApi";
 import { appendReceipt } from "../../sheetApi";
 import { uploadReceiptImage } from "../../uploadReceipt";
 
@@ -20,10 +21,10 @@ export default function HomeScreen() {
     message?: string;
   }>({ visible: false, type: "success", title: "" });
 
-const showNotice = (n: Omit<typeof notice, "visible">) => {
-  setNotice({ ...n, visible: true });
-  setTimeout(() => setNotice((p) => ({ ...p, visible: false })), 1600);
-};
+  const showNotice = (n: Omit<typeof notice, "visible">) => {
+    setNotice({ ...n, visible: true });
+    setTimeout(() => setNotice((p) => ({ ...p, visible: false })), 1600);
+  };
 
   useEffect(() => {
   if (params.uploaded === "1") {
@@ -57,14 +58,35 @@ const showNotice = (n: Omit<typeof notice, "visible">) => {
     );
 
     const imageUrl = await uploadReceiptImage(processed.uri);
+    console.log("imageUrl:", imageUrl);
 
-    await appendReceipt({
-      merchant: "",
-      amount: "",
+    console.log("calling OCR...");
+    const ocr = await extractReceiptFromImage(imageUrl);
+    console.log("OCR OK", ocr);
+
+    console.log("calling Sheets...");
+    console.log("APPEND PAYLOAD:", {
+      merchant: ocr.merchant,
+      amount: ocr.total,
+      vat: ocr.vat,
       currency: "DKK",
-      note: "Uploaded from app",
+      imageUrl,
+      date: ocr.date,
+      time: ocr.time,
+    });
+    const resp = await appendReceipt({
+      merchant: ocr.merchant ?? "",
+      amount: ocr.total ?? "",
+      currency: "DKK",
+      note: "OCR from Home",
+      vat: ocr.vat ?? "",
+      date: ocr.date ?? "",
+      time: ocr.time ?? "",
       imageUrl,
     });
+    console.log("Sheets OK", resp);
+
+    
     
     console.log("Uploaded URL:", imageUrl);
     //alert(imageUrl); // test: paste into browser, should display
@@ -80,7 +102,15 @@ const showNotice = (n: Omit<typeof notice, "visible">) => {
   return (
     <SafeAreaView style={{ flex: 1, padding: 20 }}>
       <Button title="Pick receipt image" onPress={pick} />
-
+      <Button
+        title="Open Confirm (test)"
+        onPress={() =>
+          router.push({
+            pathname: "/confirm",
+            params: { imageUrl: "test", merchant: "Test", amount: "123.45" },
+          })
+        }
+      />
       {uri && (
         <>
           <View style={{ marginTop: 20 }}>

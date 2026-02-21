@@ -61,6 +61,7 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="confirm" options={{ presentation: "modal", title: "Confirm" }} />
       </Stack>
       <StatusBar style="auto" />
       <Toast config={toastConfig} position="top"/>

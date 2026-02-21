@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Button, Image, SafeAreaView, Text, View } from "react-native";
 import { NotificationBanner } from "../../components/NotificationBanner";
-import { appendReceipt } from "../../sheetApi";
+import { extractReceiptFromImage } from "../../ocrApi";
 import { uploadReceiptImage } from "../../uploadReceipt";
 
 export default function CameraScreen() {
@@ -53,25 +53,47 @@ const showNotice = (n: Omit<typeof notice, "visible">) => {
 
       const imageUrl = await uploadReceiptImage(processed.uri);
 
-      await appendReceipt({
-        merchant: "",
-        amount: "",
-        currency: "DKK",
-        note: "Taken in-app",
-        imageUrl,
-      });
+      const ocr = await extractReceiptFromImage(imageUrl);
 
-      // Delete temp files AFTER successful upload + sheet append
-      // (best-effort cleanup; ignore errors)
+      console.log("OCR OK (camera):", ocr);
+      
+      setUri(null);
       await FileSystem.deleteAsync(uri, { idempotent: true });
       if (processed.uri !== uri) {
         await FileSystem.deleteAsync(processed.uri, { idempotent: true });
       }
+      router.push({
+        pathname: "/confirm",
+        params: {
+          imageUrl,
+          merchant: ocr.merchant ?? "",
+          amount: ocr.total ?? "",
+          vat: ocr.vat ?? "",
+          date: ocr.date ?? "",
+          time: ocr.time ?? "",
+          currency: "DKK",
+          note: "Taken in-app (OCR)",
+        },
+      });
+      // ✅ Append extracted values to sheet
+      // await appendReceipt({
+      //   merchant: ocr.merchant ?? "",
+      //   amount: ocr.total ?? "",      // IMPORTANT: amount = total
+      //   currency: "DKK",
+      //   note: "Taken in-app (OCR)",
+      //   vat: ocr.vat ?? "",
+      //   imageUrl,
+      //   date: ocr.date ?? "",
+      //   time: ocr.time ?? "",
+      //   rawText: ocr.rawText ?? "",
+      // });
 
-      setUri(null);
+      // Delete temp files AFTER successful upload + sheet append
+      // (best-effort cleanup; ignore errors)
+
       //alert("Uploaded + removed locally ✅");
+      // router.replace({ pathname: "/", params: { uploaded: "1" } });
       showNotice({ type: "success", title: "Uploaded ✅", message: "Saved to Google Sheets" });
-      router.replace({ pathname: "/", params: { uploaded: "1" } });
     } catch (e: any) {
       //alert("Error: " + e.message);
       showNotice({ type: "error", title: "Upload failed", message: e?.message ?? "Unknown error" });
